@@ -46,6 +46,9 @@ jobs:
           ref: ${{ github.event.inputs.branch || github.ref_name }}
       - name: Setup Pages
         uses: actions/configure-pages@v4
+        with:
+          # Automatically enables Pages for the repository
+          enablement: true
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
