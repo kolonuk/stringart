@@ -32,9 +32,13 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # This job builds and deploys the site to GitHub Pages.
   deploy:
     environment:
       name: github-pages
+      # The URL for the deployed site will be available as an output of the deployment step.
+      # For the `dev` branch, this will be a unique preview URL for that specific deployment.
+      # You can find this URL in the summary of the workflow run in the "Actions" tab.
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:

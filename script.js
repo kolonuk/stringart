@@ -168,7 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         for (let i = 0; i < numThreads; i++) {
             let bestNextPin = -1;
-            let maxDarkness = -Infinity;
+            let maxDarkness = 0; // Initialize to 0, not -Infinity
 
             // We wrap the inner loop in an async task to allow UI updates
             await runAsyncTask(() => {
@@ -206,6 +206,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
+
+            // --- Intelligent Stop ---
+            // If the best score is very low, it means there are no more good lines to draw.
+            // A threshold of 1 is arbitrary but works as a floor to prevent drawing "nothing" lines.
+            if (bestNextPin === -1 || maxDarkness < 1) {
+                console.log(`Stopping early at thread ${i} because no good lines were found.`);
+                break; // Exit the loop
+            }
 
             if (bestNextPin !== -1) {
                 stringArtCtx.beginPath();
@@ -282,5 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    generateBtn.addEventListener('click', generateStringArt);
+    generateBtn.addEventListener('click', async () => {
+        await generateStringArt();
+    });
 });
