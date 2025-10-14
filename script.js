@@ -1,3 +1,5 @@
+let processedImageData = null;
+
 document.addEventListener('DOMContentLoaded', () => {
     const imageUpload = document.getElementById('image-upload');
     const shapeSelect = document.getElementById('shape-select');
@@ -6,12 +8,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const generateBtn = document.getElementById('generate-btn');
     const originalCanvas = document.getElementById('original-canvas');
     const stringArtCanvas = document.getElementById('string-art-canvas');
+    const processedCanvas = document.getElementById('processed-canvas');
     const instructionsList = document.getElementById('instructions-list');
+    const progressOverlay = document.getElementById('progress-overlay');
+    const progressBar = document.getElementById('progress-bar');
+    const progressText = document.getElementById('progress-text');
 
     const originalCtx = originalCanvas.getContext('2d');
     const stringArtCtx = stringArtCanvas.getContext('2d');
+    const processedCtx = processedCanvas.getContext('2d');
 
-    let processedImageData = null;
     let image = new Image();
 
     imageUpload.addEventListener('change', (e) => {
@@ -56,14 +62,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const imageData = tempCtx.getImageData(0, 0, size, size);
         const data = imageData.data;
 
+        // Create a separate grayscale image for display
+        const displayImageData = new ImageData(size, size);
+        const displayData = displayImageData.data;
+
         for (let i = 0; i < data.length; i += 4) {
             const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-            const grayscale = 255 - avg; // Invert so darkness is higher value
-            data[i] = grayscale;
-            data[i + 1] = grayscale;
-            data[i + 2] = grayscale;
+            // For the algorithm, we want inverted (darkness = high value)
+            const invertedGrayscale = 255 - avg;
+            data[i] = invertedGrayscale;
+            data[i + 1] = invertedGrayscale;
+            data[i + 2] = invertedGrayscale;
+
+            // For display, we want normal grayscale
+            displayData[i] = avg;
+            displayData[i + 1] = avg;
+            displayData[i + 2] = avg;
+            displayData[i + 3] = 255; // Alpha
         }
         processedImageData = imageData;
+
+        // Display the processed image
+        processedCanvas.width = size;
+        processedCanvas.height = size;
+        processedCtx.putImageData(displayImageData, 0, 0);
+
         console.log("Image processed");
     }
 
@@ -95,11 +118,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    function generateStringArt() {
+    // Helper to run tasks asynchronously in chunks to avoid freezing the UI
+    function runAsyncTask(task) {
+        return new Promise(resolve => {
+            setTimeout(() => {
+                resolve(task());
+            }, 0);
+        });
+    }
+
+
+    async function generateStringArt() {
         if (!processedImageData) {
             alert('Please upload an image first.');
             return;
         }
+
+        // --- Show progress bar and disable button ---
+        generateBtn.disabled = true;
+        progressOverlay.classList.remove('hidden');
 
         const numPins = parseInt(pinsInput.value);
         const numThreads = parseInt(threadsInput.value);
@@ -112,7 +149,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const pins = getPinCoordinates(numPins, shape, w, h);
 
-        // Draw pins
         stringArtCtx.fillStyle = 'black';
         pins.forEach(pin => {
             stringArtCtx.beginPath();
@@ -120,63 +156,97 @@ document.addEventListener('DOMContentLoaded', () => {
             stringArtCtx.fill();
         });
 
-
-        // Create a copy of the image data for the algorithm to modify
         const imgDataCopy = new Uint8ClampedArray(processedImageData.data);
         const imgWidth = processedImageData.width;
 
         let currentPinIndex = 0;
-        const path = [0];
         const instructions = [];
+        const lineMemory = new Set(); // To prevent drawing the same line twice
 
         stringArtCtx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
         stringArtCtx.lineWidth = 0.5;
 
-
         for (let i = 0; i < numThreads; i++) {
             let bestNextPin = -1;
-            let maxDarkness = -Infinity;
+            let maxDarkness = 0; // Initialize to 0, not -Infinity
 
-            for (let nextPinIndex = 0; nextPinIndex < numPins; nextPinIndex++) {
-                 // Don't connect to self or immediate neighbors for better patterns
-                if (nextPinIndex === currentPinIndex || Math.abs(nextPinIndex - currentPinIndex) < 5) {
-                    continue;
-                }
+            // We wrap the inner loop in an async task to allow UI updates
+            await runAsyncTask(() => {
+                for (let nextPinIndex = 0; nextPinIndex < numPins; nextPinIndex++) {
+                    // Don't connect to self
+                    if (nextPinIndex === currentPinIndex) continue;
 
-                const linePixels = getLinePixels(pins[currentPinIndex], pins[nextPinIndex], w, h, imgWidth, imgWidth);
-                let currentDarkness = 0;
-                for (const pixel of linePixels) {
-                    const index = (pixel.y * imgWidth + pixel.x) * 4;
-                    currentDarkness += imgDataCopy[index];
-                }
+                    // Create a unique key for the pin pair, order doesn't matter
+                    const lineKey = `${Math.min(currentPinIndex, nextPinIndex)}-${Math.max(currentPinIndex, nextPinIndex)}`;
+                    if (lineMemory.has(lineKey)) {
+                        continue; // Skip if we've already drawn this line
+                    }
 
-                if (currentDarkness > maxDarkness) {
-                    maxDarkness = currentDarkness;
-                    bestNextPin = nextPinIndex;
+                    const linePixels = getLinePixels(pins[currentPinIndex], pins[nextPinIndex], w, h, imgWidth, imgWidth);
+                    let currentDarkness = 0;
+                    for (const pixel of linePixels) {
+                        const index = (pixel.y * imgWidth + pixel.x) * 4;
+                        currentDarkness += imgDataCopy[index];
+                    }
+
+                    // --- Improved Scoring ---
+                    // Favor longer lines to avoid getting stuck
+                    const dx = pins[currentPinIndex].x - pins[nextPinIndex].x;
+                    const dy = pins[currentPinIndex].y - pins[nextPinIndex].y;
+                    const length = Math.sqrt(dx * dx + dy * dy);
+
+                    // The score is a combination of darkness and length
+                    // The exponent on length gives it more weight, preventing short, repetitive lines.
+                    const score = currentDarkness * Math.pow(length, 0.5);
+
+                    if (score > maxDarkness) {
+                        maxDarkness = score;
+                        bestNextPin = nextPinIndex;
+                    }
                 }
+            });
+
+
+            // --- Intelligent Stop ---
+            // If the best score is very low, it means there are no more good lines to draw.
+            // A threshold of 1 is arbitrary but works as a floor to prevent drawing "nothing" lines.
+            if (bestNextPin === -1 || maxDarkness < 1) {
+                console.log(`Stopping early at thread ${i} because no good lines were found.`);
+                break; // Exit the loop
             }
 
             if (bestNextPin !== -1) {
-                // Draw the line on the canvas
                 stringArtCtx.beginPath();
                 stringArtCtx.moveTo(pins[currentPinIndex].x, pins[currentPinIndex].y);
                 stringArtCtx.lineTo(pins[bestNextPin].x, pins[bestNextPin].y);
                 stringArtCtx.stroke();
 
-                // "Remove" the darkness from the image copy
                 const bestLinePixels = getLinePixels(pins[currentPinIndex], pins[bestNextPin], w, h, imgWidth, imgWidth);
                 for (const pixel of bestLinePixels) {
                     const index = (pixel.y * imgWidth + pixel.x) * 4;
-                    imgDataCopy[index] = 0;
-                    imgDataCopy[index + 1] = 0;
-                    imgDataCopy[index + 2] = 0;
+                    // "Bleach" the line by reducing darkness
+                    imgDataCopy[index] = Math.max(0, imgDataCopy[index] - 64);
+                    imgDataCopy[index + 1] = Math.max(0, imgDataCopy[index + 1] - 64);
+                    imgDataCopy[index + 2] = Math.max(0, imgDataCopy[index + 2] - 64);
                 }
 
                 instructions.push({ from: currentPinIndex + 1, to: bestNextPin + 1 });
+                const lineKey = `${Math.min(currentPinIndex, bestNextPin)}-${Math.max(currentPinIndex, bestNextPin)}`;
+                lineMemory.add(lineKey); // Remember this line
                 currentPinIndex = bestNextPin;
-                path.push(currentPinIndex);
+
             }
+
+            // --- Update progress bar ---
+            const progress = ((i + 1) / numThreads) * 100;
+            progressBar.style.width = `${progress}%`;
+            progressText.textContent = `${Math.round(progress)}%`;
         }
+
+        // --- Hide progress bar and re-enable button ---
+        generateBtn.disabled = false;
+        progressOverlay.classList.add('hidden');
+
         displayInstructions(instructions);
     }
 
@@ -220,5 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    generateBtn.addEventListener('click', generateStringArt);
+    generateBtn.addEventListener('click', async () => {
+        await generateStringArt();
+    });
 });
