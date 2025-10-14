@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>String Art Generator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>String Art Generator</h1>
+    </header>
+
+    <main>
+        <div class="controls">
+            <h2>Controls</h2>
+            <div class="control-group">
+                <label for="image-upload">Upload Image:</label>
+                <input type="file" id="image-upload" accept="image/*">
+            </div>
+            <div class="control-group">
+                <label for="shape-select">Shape:</label>
+                <select id="shape-select">
+                    <option value="circle">Circle</option>
+                    <option value="square">Square</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="pins-input">Number of Pins:</label>
+                <input type="number" id="pins-input" value="200" min="10" max="1000">
+            </div>
+            <div class="control-group">
+                <label for="threads-input">Number of Threads:</label>
+                <input type="number" id="threads-input" value="3000" min="100" max="10000">
+            </div>
+            <button id="generate-btn">Generate</button>
+        </div>
+
+        <div class="output">
+            <div class="image-display">
+                <h3>Original Image</h3>
+                <canvas id="original-canvas"></canvas>
+            </div>
+            <div class="image-display">
+                <h3>Processed Image</h3>
+                <canvas id="processed-canvas"></canvas>
+            </div>
+            <div class="image-display">
+                <h3>String Art</h3>
+                <canvas id="string-art-canvas"></canvas>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h2>Instructions</h2>
+            <ol id="instructions-list"></ol>
+        </div>
+
+        <div id="progress-overlay" class="hidden">
+            <div class="progress-container">
+                <p>Generating String Art...</p>
+                <div class="progress-bar-container">
+                    <div id="progress-bar" class="progress-bar"></div>
+                </div>
+                <p id="progress-text">0%</p>
+            </div>
+        </div>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
