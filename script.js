@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const generateBtn = document.getElementById('generate-btn');
     const originalCanvas = document.getElementById('original-canvas');
     const stringArtCanvas = document.getElementById('string-art-canvas');
+    const processedCanvas = document.getElementById('processed-canvas');
     const instructionsList = document.getElementById('instructions-list');
     const progressOverlay = document.getElementById('progress-overlay');
     const progressBar = document.getElementById('progress-bar');
@@ -15,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const originalCtx = originalCanvas.getContext('2d');
     const stringArtCtx = stringArtCanvas.getContext('2d');
+    const processedCtx = processedCanvas.getContext('2d');
 
     let image = new Image();
 
@@ -60,14 +62,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const imageData = tempCtx.getImageData(0, 0, size, size);
         const data = imageData.data;
 
+        // Create a separate grayscale image for display
+        const displayImageData = new ImageData(size, size);
+        const displayData = displayImageData.data;
+
         for (let i = 0; i < data.length; i += 4) {
             const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-            const grayscale = 255 - avg; // Invert so darkness is higher value
-            data[i] = grayscale;
-            data[i + 1] = grayscale;
-            data[i + 2] = grayscale;
+            // For the algorithm, we want inverted (darkness = high value)
+            const invertedGrayscale = 255 - avg;
+            data[i] = invertedGrayscale;
+            data[i + 1] = invertedGrayscale;
+            data[i + 2] = invertedGrayscale;
+
+            // For display, we want normal grayscale
+            displayData[i] = avg;
+            displayData[i + 1] = avg;
+            displayData[i + 2] = avg;
+            displayData[i + 3] = 255; // Alpha
         }
         processedImageData = imageData;
+
+        // Display the processed image
+        processedCanvas.width = size;
+        processedCanvas.height = size;
+        processedCtx.putImageData(displayImageData, 0, 0);
+
         console.log("Image processed");
     }
 
@@ -170,8 +189,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         currentDarkness += imgDataCopy[index];
                     }
 
-                    if (currentDarkness > maxDarkness) {
-                        maxDarkness = currentDarkness;
+                    // --- Improved Scoring ---
+                    // Favor longer lines to avoid getting stuck
+                    const dx = pins[currentPinIndex].x - pins[nextPinIndex].x;
+                    const dy = pins[currentPinIndex].y - pins[nextPinIndex].y;
+                    const length = Math.sqrt(dx * dx + dy * dy);
+
+                    // The score is a combination of darkness and length
+                    // The exponent on length gives it more weight, preventing short, repetitive lines.
+                    const score = currentDarkness * Math.pow(length, 0.5);
+
+                    if (score > maxDarkness) {
+                        maxDarkness = score;
                         bestNextPin = nextPinIndex;
                     }
                 }

@@ -79,6 +79,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // This is a simplified approach. For a real app, a library like Jest with JSDOM would be better.
     if (!document.getElementById('image-upload')) {
         document.body.innerHTML += `
+            <div id="progress-overlay" class="hidden">
+                <div id="progress-bar"></div>
+                <p id="progress-text"></p>
+            </div>
             <input type="file" id="image-upload">
             <select id="shape-select"></select>
             <input type="number" id="pins-input">
@@ -86,7 +90,36 @@ document.addEventListener('DOMContentLoaded', () => {
             <button id="generate-btn"></button>
             <canvas id="original-canvas"></canvas>
             <canvas id="string-art-canvas"></canvas>
+            <canvas id="processed-canvas"></canvas>
             <ol id="instructions-list"></ol>
         `;
     }
+
+    runTest('generateStringArt: Runs to completion', async () => {
+        // Mock the processedImageData
+        const size = 20;
+        const mockData = new Uint8ClampedArray(size * size * 4);
+        for (let i = 0; i < mockData.length; i += 4) {
+            mockData[i] = 128; // Some gray value
+            mockData[i+1] = 128;
+            mockData[i+2] = 128;
+            mockData[i+3] = 255;
+        }
+        window.processedImageData = new ImageData(mockData, size, size);
+
+        // Set some input values
+        document.getElementById('pins-input').value = '50';
+        document.getElementById('threads-input').value = '100';
+
+        // Get a reference to the instructions list
+        const instructionsList = document.getElementById('instructions-list');
+        instructionsList.innerHTML = ''; // Clear it before the test
+
+        // Run the function
+        await generateStringArt();
+
+        // Assert that instructions were generated
+        assert(instructionsList.children.length > 0, 'Should generate more than 0 instructions');
+        assertEquals(100, instructionsList.children.length, 'Should generate the requested number of instructions');
+    });
 });

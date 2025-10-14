@@ -30,9 +30,10 @@ main {
 }
 
 .output {
-    flex: 2 1 500px;
+    flex: 3 1 600px;
     display: flex;
     gap: 1rem;
+    justify-content: space-around;
 }
 
 .instructions {
