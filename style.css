@@ -1,14 +1,51 @@
+:root {
+    --bg-color: #f0f0f0;
+    --text-color: #333;
+    --header-bg: #333;
+    --header-text: white;
+    --card-bg: white;
+    --card-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    --button-bg: #333;
+    --button-text: white;
+    --button-hover-bg: #555;
+    --canvas-border: #ccc;
+}
+
 body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
     font-family: sans-serif;
     margin: 0;
-    background-color: #f0f0f0;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+body.dark-mode {
+    --bg-color: #1a1a1a;
+    --text-color: #f0f0f0;
+    --header-bg: #222;
+    --card-bg: #2c2c2c;
+    --card-shadow: 0 2px 5px rgba(0,0,0,0.5);
+    --button-bg: #555;
+    --button-hover-bg: #777;
+    --canvas-border: #555;
 }
 
 header {
-    background-color: #333;
-    color: white;
+    background-color: var(--header-bg);
+    color: var(--header-text);
     padding: 1rem;
     text-align: center;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+header h1 {
+    margin: 0;
+    flex-grow: 1;
+    text-align: center;
+    /* Adjust to keep title centered with the switch */
+    margin-left: 50px;
 }
 
 main {
@@ -19,10 +56,11 @@ main {
 }
 
 .controls, .output, .instructions {
-    background-color: white;
+    background-color: var(--card-bg);
     padding: 1rem;
     border-radius: 5px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    box-shadow: var(--card-shadow);
+    transition: background-color 0.3s;
 }
 
 .controls {
@@ -56,14 +94,15 @@ input, select, button {
 }
 
 button {
-    background-color: #333;
-    color: white;
+    background-color: var(--button-bg);
+    color: var(--button-text);
     border: none;
     cursor: pointer;
+    transition: background-color 0.3s;
 }
 
 button:hover {
-    background-color: #555;
+    background-color: var(--button-hover-bg);
 }
 
 .image-display {
@@ -71,8 +110,9 @@ button:hover {
 }
 
 canvas {
-    border: 1px solid #ccc;
+    border: 1px solid var(--canvas-border);
     max-width: 100%;
+    cursor: grab;
 }
 
 #instructions-list {
@@ -93,7 +133,7 @@ canvas {
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgba(0, 0, 0, 0.7);
     z-index: 1000;
     display: flex;
     justify-content: center;
@@ -101,7 +141,7 @@ canvas {
 }
 
 .progress-container {
-    background-color: white;
+    background-color: var(--card-bg);
     padding: 2rem;
     border-radius: 5px;
     text-align: center;
@@ -121,4 +161,59 @@ canvas {
     background-color: #4caf50;
     border-radius: 5px;
     transition: width 0.1s linear;
+}
+
+/* Theme Switch Styles */
+.theme-switch-wrapper {
+    display: flex;
+    align-items: center;
+}
+
+.theme-switch {
+    display: inline-block;
+    height: 34px;
+    position: relative;
+    width: 60px;
+}
+
+.theme-switch input {
+    display: none;
+}
+
+.slider {
+    background-color: #ccc;
+    bottom: 0;
+    cursor: pointer;
+    left: 0;
+    position: absolute;
+    right: 0;
+    top: 0;
+    transition: .4s;
+}
+
+.slider:before {
+    background-color: #fff;
+    bottom: 4px;
+    content: "";
+    height: 26px;
+    left: 4px;
+    position: absolute;
+    transition: .4s;
+    width: 26px;
+}
+
+input:checked+.slider {
+    background-color: #2196F3;
+}
+
+input:checked+.slider:before {
+    transform: translateX(26px);
+}
+
+.slider.round {
+    border-radius: 34px;
+}
+
+.slider.round:before {
+    border-radius: 50%;
 }
