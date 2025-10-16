@@ -1,0 +1,62 @@
+name: Deploy to GitHub Pages
+
+on:
+  # Runs on pushes targeting the default branch or the dev branch
+  push:
+    branches:
+      - main
+      - dev
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'The branch to deploy'
+        required: true
+        type: choice
+        options:
+        - main
+        - dev
+        default: 'main'
+
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  # This job builds and deploys the site to GitHub Pages.
+  deploy:
+    environment:
+      name: github-pages
+      # The URL for the deployed site will be available as an output of the deployment step.
+      # For the `dev` branch, this will be a unique preview URL for that specific deployment.
+      # You can find this URL in the summary of the workflow run in the "Actions" tab.
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # When run manually, use the branch selected in the input.
+          # When triggered by a push, use the branch that was pushed to.
+          ref: ${{ github.event.inputs.branch || github.ref_name }}
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+        with:
+          # Automatically enables Pages for the repository
+          enablement: true
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          path: .
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
