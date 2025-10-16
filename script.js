@@ -201,7 +201,6 @@ document.addEventListener('DOMContentLoaded', () => {
         stringArtCtx.clearRect(0,0,w,h);
         stringArtCtx.fillStyle = 'white';
         stringArtCtx.fillRect(0, 0, w, h);
-
         const pins = getPinCoordinates(numPins, shape, w, h);
         stringArtCtx.fillStyle = 'black';
         pins.forEach(pin => {
