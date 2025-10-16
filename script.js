@@ -72,8 +72,6 @@ document.addEventListener('DOMContentLoaded', () => {
         window.processedImageForPreview = imageDataForDisplay;
         window.imageState = { x: 0, y: 0, scale: 1 };
         updateAndDrawPreview();
-
-        console.log("Image processed for preview");
     }
 
     function updateAndDrawPreview() {
@@ -84,17 +82,9 @@ document.addEventListener('DOMContentLoaded', () => {
         processedCanvas.width = w;
         processedCanvas.height = h;
 
-        processedCtx.clearRect(0, 0, w, h);
-        processedCtx.save();
-        processedCtx.translate(window.imageState.x, window.imageState.y);
-        processedCtx.scale(window.imageState.scale, window.imageState.scale);
-
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = w;
-        tempCanvas.height = h;
-        tempCanvas.getContext('2d').putImageData(window.processedImageForPreview, 0, 0);
-        processedCtx.drawImage(tempCanvas, 0, 0);
-        processedCtx.restore();
+        const transformedCanvas = getFinalTransformedCanvas(false);
+        processedCtx.clearRect(0,0,w,h);
+        processedCtx.drawImage(transformedCanvas, 0, 0);
 
         const saCtx = stringArtCanvas.getContext('2d');
         const saW = stringArtCanvas.width;
@@ -115,40 +105,42 @@ document.addEventListener('DOMContentLoaded', () => {
             saCtx.clip();
         }
 
-        saCtx.drawImage(processedCanvas, 0, 0, saW, saH);
+        saCtx.drawImage(transformedCanvas, 0, 0, saW, saH);
         saCtx.restore();
     }
 
-    function getFinalTransformedImageData() {
+    function getFinalTransformedCanvas(invertColors = true) {
         const size = 200;
+        const finalCanvas = document.createElement('canvas');
+        finalCanvas.width = size;
+        finalCanvas.height = size;
+        const finalCtx = finalCanvas.getContext('2d');
+
+        finalCtx.save();
+        finalCtx.translate(window.imageState.x, window.imageState.y);
+        finalCtx.scale(window.imageState.scale, window.imageState.scale);
+
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = size;
         tempCanvas.height = size;
-        const tempCtx = tempCanvas.getContext('2d');
+        tempCanvas.getContext('2d').putImageData(window.processedImageForPreview, 0, 0);
+        finalCtx.drawImage(tempCanvas, 0, 0);
+        finalCtx.restore();
 
-        const shape = shapeSelect.value;
-        if (shape === 'circle') {
-            const radius = size / 2;
-            tempCtx.beginPath();
-            tempCtx.arc(size / 2, size / 2, radius, 0, 2 * Math.PI);
-            tempCtx.clip();
-        } else if (shape === 'square') {
-             tempCtx.beginPath();
-             tempCtx.rect(0,0,size,size);
-             tempCtx.clip();
+        if (invertColors) {
+            const imageData = finalCtx.getImageData(0, 0, size, size);
+            const data = imageData.data;
+            for (let i = 0; i < data.length; i += 4) {
+                const avg = data[i];
+                const invertedGrayscale = 255 - avg;
+                data[i] = invertedGrayscale;
+                data[i + 1] = invertedGrayscale;
+                data[i + 2] = invertedGrayscale;
+            }
+            finalCtx.putImageData(imageData, 0, 0);
         }
-        tempCtx.drawImage(processedCanvas, 0, 0, size, size);
 
-        const finalImageData = tempCtx.getImageData(0, 0, size, size);
-        const data = finalImageData.data;
-        for (let i = 0; i < data.length; i += 4) {
-            const avg = data[i]; // Already grayscale
-            const invertedGrayscale = 255 - avg;
-            data[i] = invertedGrayscale;
-            data[i + 1] = invertedGrayscale;
-            data[i + 2] = invertedGrayscale;
-        }
-        return finalImageData;
+        return finalCanvas;
     }
 
     function getPinCoordinates(numPins, shape, canvasWidth, canvasHeight) {
@@ -184,19 +176,32 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        processedImageData = getFinalTransformedImageData();
+        const finalCanvas = getFinalTransformedCanvas(true);
+        const finalCtx = finalCanvas.getContext('2d');
+        const shape = shapeSelect.value;
+        const size = finalCanvas.width;
+        if (shape === 'circle') {
+            finalCtx.globalCompositeOperation = 'destination-in';
+            finalCtx.beginPath();
+            finalCtx.arc(size / 2, size / 2, size / 2, 0, 2 * Math.PI);
+            finalCtx.fill();
+        }
+        processedImageData = finalCtx.getImageData(0, 0, size, size);
 
         generateBtn.disabled = true;
+        progressBar.style.width = '0%';
+        progressText.textContent = '0%';
         progressOverlay.classList.remove('hidden');
 
         const numPins = parseInt(pinsInput.value);
         const numThreads = parseInt(threadsInput.value);
-        const shape = shapeSelect.value;
         const w = stringArtCanvas.width;
         const h = stringArtCanvas.height;
 
+        stringArtCtx.clearRect(0,0,w,h);
         stringArtCtx.fillStyle = 'white';
         stringArtCtx.fillRect(0, 0, w, h);
+
         const pins = getPinCoordinates(numPins, shape, w, h);
         stringArtCtx.fillStyle = 'black';
         pins.forEach(pin => {
@@ -249,9 +254,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const bestLinePixels = getLinePixels(pins[currentPinIndex], pins[bestNextPin], w, h, imgWidth, imgWidth);
                 for (const pixel of bestLinePixels) {
                     const index = (pixel.y * imgWidth + pixel.x) * 4;
-                    imgDataCopy[index] = Math.max(0, imgDataCopy[index] - 64);
-                    imgDataCopy[index + 1] = Math.max(0, imgDataCopy[index + 1] - 64);
-                    imgDataCopy[index + 2] = Math.max(0, imgDataCopy[index + 2] - 64);
+                    // More impactful bleaching
+                    imgDataCopy[index] = Math.max(0, imgDataCopy[index] - 128);
+                    imgDataCopy[index + 1] = Math.max(0, imgDataCopy[index + 1] - 128);
+                    imgDataCopy[index + 2] = Math.max(0, imgDataCopy[index + 2] - 128);
                 }
                 instructions.push({ from: currentPinIndex + 1, to: bestNextPin + 1 });
                 currentPinIndex = bestNextPin;
@@ -305,7 +311,6 @@ document.addEventListener('DOMContentLoaded', () => {
         await generateStringArt();
     });
 
-    // --- Drag and Zoom Logic ---
     let isDragging = false;
     let lastX, lastY;
 
@@ -371,13 +376,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const zoomIntensity = 0.1;
         const delta = e.deltaY > 0 ? -zoomIntensity : zoomIntensity;
         window.imageState.scale += delta;
-        window.imageState.scale = Math.max(0.1, window.imageState.scale); // Prevent zooming out too much
+        window.imageState.scale = Math.max(0.1, window.imageState.scale);
         updateAndDrawPreview();
     });
 
     shapeSelect.addEventListener('change', updateAndDrawPreview);
 
-    // --- Dark Mode Logic ---
     function setDarkMode(isDark) {
         if (isDark) {
             document.body.classList.add('dark-mode');
