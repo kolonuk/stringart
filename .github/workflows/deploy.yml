@@ -58,8 +58,8 @@ jobs:
           rm -rf node_modules
           rm -rf .git
           rm -rf tests
-          rm -rf jules-scratch
-          rm verify_similarity.js
+          rm -rf jules-scratch || true
+          rm verify_similarity.js || true
           rm test-image.png
       - name: Upload artifact
         uses: actions/upload-artifact@v4
