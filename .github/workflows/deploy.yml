@@ -53,19 +53,15 @@ jobs:
         with:
           # Automatically enables Pages for the repository
           enablement: true
-      - name: Clean up development files
+      - name: Prepare deployment artifact
         run: |
-          rm -rf node_modules
-          rm -rf .git
-          rm -rf tests
-          rm -rf jules-scratch || true
-          rm verify_similarity.js || true
-          rm test-image.png
+          mkdir -p deploy
+          cp index.html style.css script.js robots.txt deploy/
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: github-pages
-          path: .
+          path: ./deploy
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
