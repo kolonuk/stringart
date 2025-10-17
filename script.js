@@ -214,6 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const imgWidth = processedImageData.width;
         let currentPinIndex = 0;
         const instructions = [];
+        const usedPinPairs = new Set();
         stringArtCtx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
         stringArtCtx.lineWidth = 0.5;
 
@@ -224,6 +225,10 @@ document.addEventListener('DOMContentLoaded', () => {
             await runAsyncTask(() => {
                 for (let nextPinIndex = 0; nextPinIndex < numPins; nextPinIndex++) {
                     if (nextPinIndex === currentPinIndex) continue;
+
+                    const pairKey = `${Math.min(currentPinIndex, nextPinIndex)}-${Math.max(currentPinIndex, nextPinIndex)}`;
+                    if (usedPinPairs.has(pairKey)) continue;
+
                     const linePixels = getLinePixels(pins[currentPinIndex], pins[nextPinIndex], w, h, imgWidth, imgWidth);
                     let currentDarkness = 0;
                     for (const pixel of linePixels) {
@@ -233,7 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const dx = pins[currentPinIndex].x - pins[nextPinIndex].x;
                     const dy = pins[currentPinIndex].y - pins[nextPinIndex].y;
                     const length = Math.sqrt(dx * dx + dy * dy);
-                    const score = currentDarkness * Math.pow(length, 0.5);
+                    const score = currentDarkness / length;
                     if (score > maxDarkness) {
                         maxDarkness = score;
                         bestNextPin = nextPinIndex;
@@ -247,6 +252,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (bestNextPin !== -1) {
+                const pairKey = `${Math.min(currentPinIndex, bestNextPin)}-${Math.max(currentPinIndex, bestNextPin)}`;
+                usedPinPairs.add(pairKey);
+
                 stringArtCtx.beginPath();
                 stringArtCtx.moveTo(pins[currentPinIndex].x, pins[currentPinIndex].y);
                 stringArtCtx.lineTo(pins[bestNextPin].x, pins[bestNextPin].y);
@@ -254,10 +262,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const bestLinePixels = getLinePixels(pins[currentPinIndex], pins[bestNextPin], w, h, imgWidth, imgWidth);
                 for (const pixel of bestLinePixels) {
                     const index = (pixel.y * imgWidth + pixel.x) * 4;
-                    // More impactful bleaching
-                    imgDataCopy[index] = Math.max(0, imgDataCopy[index] - 128);
-                    imgDataCopy[index + 1] = Math.max(0, imgDataCopy[index + 1] - 128);
-                    imgDataCopy[index + 2] = Math.max(0, imgDataCopy[index + 2] - 128);
+                    const bleachAmount = 32;
+                    imgDataCopy[index] = Math.max(0, imgDataCopy[index] - bleachAmount);
+                    imgDataCopy[index + 1] = Math.max(0, imgDataCopy[index + 1] - bleachAmount);
+                    imgDataCopy[index + 2] = Math.max(0, imgDataCopy[index + 2] - bleachAmount);
                 }
                 instructions.push({ from: currentPinIndex + 1, to: bestNextPin + 1 });
                 currentPinIndex = bestNextPin;
